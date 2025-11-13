@@ -1,0 +1,101 @@
+from django.utils import timezone
+from django.db.models import Q
+from rest_framework import viewsets, generics, status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.filters import SearchFilter
+from django_filters.rest_framework import DjangoFilterBackend
+from django.shortcuts import get_object_or_404
+from panel.Ticketing.models import Ticket, Message, TicketType
+from .serializers import (
+    TicketListSerializer, TicketDetailSerializer, TicketCreateSerializer,
+    TicketStatusUpdateSerializer, MessageSerializer, MessageCreateSerializer
+)
+from .filters import TicketFilter, MessageFilter
+
+class TicketViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_class = TicketFilter
+    search_fields = ['title', 'messages__text']
+    lookup_field = 'id'
+    def get_queryset(self):
+        return Ticket.objects.filter(user=self.request.user).select_related('ticket_type', 'user')
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return TicketCreateSerializer
+        if self.action == 'list':
+            return TicketListSerializer
+        if self.action == 'set_status':
+            return TicketStatusUpdateSerializer
+        return TicketDetailSerializer
+
+    @action(detail=True, methods=['patch'], url_path='set-status')
+    def set_status(self, request, id=None):
+        ticket = self.get_object()
+        serializer = self.get_serializer(ticket, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(TicketDetailSerializer(ticket).data)
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+class MessageListCreateAPIView(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_class = MessageFilter
+    search_fields = ['text']
+
+    def get_ticket(self):
+        id = self.kwargs.get('id')
+        ticket = get_object_or_404(Ticket, id=id, user=self.request.user)
+        return ticket
+
+    def get_queryset(self):
+        ticket = self.get_ticket()
+        return Message.objects.filter(ticket=ticket).select_related('sender').prefetch_related('attachments')
+
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return MessageCreateSerializer
+        return MessageSerializer
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['ticket'] = self.get_ticket()
+        context['request'] = self.request
+        return context
+    
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        queryset.filter(seen=False).exclude(sender=request.user).update(seen=True)
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+class MessageRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = MessageSerializer
+    lookup_field = 'id'
+
+    def get_queryset(self):
+        return Message.objects.filter(sender=self.request.user)
+
+    def perform_update(self, serializer):
+        message = serializer.instance
+        if message.ticket.status == Ticket.Status.CLOSED:
+            raise PermissionDenied("You cannot edit messages in a closed ticket.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if instance.ticket.status == Ticket.Status.CLOSED:
+            raise PermissionDenied("You cannot delete messages in a closed ticket.")
+        instance.delete()
