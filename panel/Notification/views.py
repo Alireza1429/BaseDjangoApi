@@ -6,10 +6,10 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.contrib.auth import get_user_model
 from .serializers import BroadcastNotificationSerializer
 from common.utils.notification_tasks import send_broadcast_notification_thread 
-
+from common.utils.mixins import FieldFilterOverviewMixin
 User = get_user_model()
 
-class BroadcastNotificationAPIView(APIView):
+class BroadcastNotificationAPIView(FieldFilterOverviewMixin, APIView):
     permission_classes = [IsAuthenticated, IsAdminUser]
     
     def post(self, request, *args, **kwargs):

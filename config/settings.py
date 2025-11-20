@@ -6,7 +6,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # load_dotenv(BASE_DIR / ".env")
 SECRET_KEY = os.environ.get("SECRET_KEY")
 DEBUG = os.environ.get("DEBUG", "False") == "True"
-
+ENABLE_FIELD_FILTER_PAGINATION = os.environ.get("ENABLE_FIELD_FILTER_PAGINATION", "False")
 ALLOWED_HOSTS_str = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1")
 ALLOWED_HOSTS = ALLOWED_HOSTS_str.split(",")
 

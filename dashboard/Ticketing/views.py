@@ -14,8 +14,9 @@ from .serializers import (
     TicketStatusUpdateSerializer, MessageSerializer, MessageCreateSerializer
 )
 from .filters import TicketFilter, MessageFilter
+from common.utils.mixins import FieldFilterOverviewMixin
 
-class TicketViewSet(viewsets.ModelViewSet):
+class TicketViewSet(FieldFilterOverviewMixin, viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_class = TicketFilter

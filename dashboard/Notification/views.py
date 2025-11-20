@@ -7,8 +7,9 @@ from django_filters.rest_framework import DjangoFilterBackend
 from panel.Notification.models import Notification
 from .serializers import NotificationSerializer
 from .filters import NotificationFilter
+from common.utils.mixins import FieldFilterOverviewMixin
 
-class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
+class NotificationViewSet(FieldFilterOverviewMixin, viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = NotificationSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]

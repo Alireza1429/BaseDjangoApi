@@ -9,8 +9,9 @@ from .serializers import (
     UserCreateSerializer, 
     UserUpdateSerializer
 )
+from common.utils.mixins import FieldFilterOverviewMixin
 
-class UserViewSet(viewsets.ModelViewSet):
+class UserViewSet(FieldFilterOverviewMixin, viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsAdminUser]
     queryset = User.objects.all().order_by('-date_joined')
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]

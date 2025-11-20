@@ -32,6 +32,7 @@ x-environment: &shared-environment
   ZARINPAL_MERCHANT_ID: 'zarinpal-merchant-id'
   CALLBACK_URL: 'https://example.com/payment/verify/'
   CANCEL_URL: 'https://example.com/payment/cancel/'
+  ENABLE_FIELD_FILTER_PAGINATION: 'False'
 
 services:
   db_postgres:

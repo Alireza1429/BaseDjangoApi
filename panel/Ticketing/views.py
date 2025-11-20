@@ -7,14 +7,14 @@ from rest_framework.filters import SearchFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
 from panel.Ticketing.models import Ticket, Message
-
+from common.utils.mixins import FieldFilterOverviewMixin
 from .serializers import (
     TicketListSerializer, TicketDetailSerializer, MessageSerializer, 
     MessageCreateSerializer, StaffTicketUpdateSerializer
 )
 from .filters import StaffTicketFilter, MessageFilter
 
-class StaffTicketViewSet(viewsets.ModelViewSet):
+class StaffTicketViewSet(FieldFilterOverviewMixin, viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsAdminUser]
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_class = StaffTicketFilter
