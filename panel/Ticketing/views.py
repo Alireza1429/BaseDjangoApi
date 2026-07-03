@@ -1,8 +1,11 @@
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_yasg import openapi
+from drf_yasg.utils import no_body, swagger_auto_schema
 from rest_framework import generics, viewsets
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.filters import SearchFilter
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 
@@ -17,6 +20,19 @@ from .serializers import (
     TicketDetailSerializer,
     TicketListSerializer,
 )
+
+MESSAGE_CREATE_FORM_PARAMETERS = [
+    openapi.Parameter("text", openapi.IN_FORM, type=openapi.TYPE_STRING, required=True),
+    openapi.Parameter(
+        "attachments",
+        openapi.IN_FORM,
+        description=(
+            "Optional ticket attachment. To upload multiple files, send this form field more than once."
+        ),
+        type=openapi.TYPE_FILE,
+        required=False,
+    ),
+]
 
 
 class StaffTicketViewSet(FieldFilterOverviewMixin, viewsets.ModelViewSet):
@@ -40,6 +56,7 @@ class StaffTicketViewSet(FieldFilterOverviewMixin, viewsets.ModelViewSet):
 
 class StaffMessageListCreateAPIView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsAdminUser]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_class = MessageFilter
     search_fields = ["text"]
@@ -64,9 +81,20 @@ class StaffMessageListCreateAPIView(generics.ListCreateAPIView):
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
+        if getattr(self, "swagger_fake_view", False):
+            return context
+
         context["ticket"] = self.get_ticket()
         context["request"] = self.request
         return context
+
+    @swagger_auto_schema(
+        request_body=no_body,
+        manual_parameters=MESSAGE_CREATE_FORM_PARAMETERS,
+        consumes=["multipart/form-data"],
+    )
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
 
     def list(self, request, *args, **kwargs):
         ticket = self.get_ticket()
@@ -87,6 +115,7 @@ class StaffMessageRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPI
     permission_classes = [IsAuthenticated, IsAdminUser]
     serializer_class = MessageSerializer
     lookup_field = "id"
+    http_method_names = ["get", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
         return Message.objects.all()
