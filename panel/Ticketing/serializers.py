@@ -3,6 +3,7 @@ import os
 from rest_framework import serializers
 
 from panel.Ticketing.models import Attachment, Message, Ticket, TicketType
+from panel.Ticketing.validators import validate_attachment_extension
 
 
 class AttachmentSerializer(serializers.ModelSerializer):
@@ -63,6 +64,7 @@ class MessageCreateSerializer(serializers.ModelSerializer):
         for file in files:
             if file.size > 5 * 1024 * 1024:
                 raise serializers.ValidationError("File size exceeds the limit of 5MB.")
+            validate_attachment_extension(file)
         return files
 
     def create(self, validated_data):
