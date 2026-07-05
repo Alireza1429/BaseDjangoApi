@@ -1,11 +1,13 @@
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from billing.models import DiscountCode
-from panel.Ticketing.models import Message, Ticket, TicketType
+from panel.Ticketing.models import Attachment, Message, Ticket, TicketType
+from panel.Ticketing.validators import validate_attachment_extension
 
 User = get_user_model()
 
@@ -72,6 +74,33 @@ class PanelBillingAndTicketingTestCase(APITestCase):
 
         # Verify message count in database
         self.assertEqual(Message.objects.filter(ticket=self.ticket).count(), 1)
+
+    def test_regular_user_cannot_upload_disallowed_ticket_attachment_extension(self):
+        self.client.force_authenticate(user=self.regular_user)
+        upload = SimpleUploadedFile(
+            "malware.exe", b"not really an executable", content_type="application/octet-stream"
+        )
+        response = self.client.post(
+            self.user_messages_url,
+            {"text": "Please check this attachment.", "attachments": [upload]},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(Attachment.objects.count(), 0)
+
+    def test_ticket_attachment_validator_blocks_executable_extensions_with_code(self):
+        upload = SimpleUploadedFile(
+            "deploy.cmd", b"not really a command", content_type="application/octet-stream"
+        )
+
+        with self.assertRaisesMessage(
+            Exception,
+            "Files with the .cmd extension are not allowed.",
+        ) as exc:
+            validate_attachment_extension(upload)
+
+        self.assertEqual(exc.exception.get_codes(), ["blocked_attachment_extension"])
 
     def test_staff_can_view_all_tickets_and_update(self):
         self.client.force_authenticate(user=self.admin_user)
